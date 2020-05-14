@@ -5,6 +5,8 @@ import (
 )
 
 func TestExpandWithExprsSuccess(t *testing.T) {
+
+
 	f := func(q, qExpected string) {
 		t.Helper()
 		for i := 0; i < 3; i++ {

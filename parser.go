@@ -7,37 +7,76 @@ import (
 	"sync"
 )
 
+
+
+
+
+
+
 // Parse parses MetricsQL query s.
 //
 // All the `WITH` expressions are expanded in the returned Expr.
 //
 // MetricsQL is backwards-compatible with PromQL.
+
+//
+//
+//
+
 func Parse(s string) (Expr, error) {
+
 	var p parser
+
 	p.lex.Init(s)
+
 	if err := p.lex.Next(); err != nil {
 		return nil, fmt.Errorf(`cannot find the first token: %s`, err)
 	}
+
+
 	e, err := p.parseExpr()
 	if err != nil {
 		return nil, fmt.Errorf(`%s; unparsed data: %q`, err, p.lex.Context())
 	}
+
 	if !isEOF(p.lex.Token) {
 		return nil, fmt.Errorf(`unparsed data left: %q`, p.lex.Context())
 	}
+
 	was := getDefaultWithArgExprs()
+
+
 	if e, err = expandWithExpr(was, e); err != nil {
 		return nil, fmt.Errorf(`cannot expand WITH expressions: %s`, err)
 	}
+
 	e = removeParensExpr(e)
 	e = simplifyConstants(e)
+
 	return e, nil
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Expr holds any of *Expr types.
 type Expr interface {
+
 	// AppendString appends string representation of Expr to dst.
 	AppendString(dst []byte) []byte
+
 }
 
 func getDefaultWithArgExprs() []*withArgExpr {
@@ -190,13 +229,16 @@ func simplifyConstantsInplace(args []Expr) {
 	}
 }
 
+
+
+
 // parser parses MetricsQL expression.
 //
 // preconditions for all parser.parse* funcs:
-// - p.lex.Token should point to the first token to parse.
+// 	- p.lex.Token should point to the first token to parse.
 //
 // postconditions for all parser.parse* funcs:
-// - p.lex.Token should point to the next token after the parsed token.
+// 	- p.lex.Token should point to the next token after the parsed token.
 type parser struct {
 	lex lexer
 }
@@ -208,10 +250,14 @@ func isWith(s string) bool {
 
 // parseWithExpr parses `WITH (withArgExpr...) expr`.
 func (p *parser) parseWithExpr() (*withExpr, error) {
+
+
 	var we withExpr
+
 	if !isWith(p.lex.Token) {
 		return nil, fmt.Errorf("withExpr: unexpected token %q; want `WITH`", p.lex.Token)
 	}
+
 	if err := p.lex.Next(); err != nil {
 		return nil, err
 	}
@@ -298,72 +344,112 @@ func (p *parser) parseWithArgExpr() (*withArgExpr, error) {
 }
 
 func (p *parser) parseExpr() (Expr, error) {
+
+
 	e, err := p.parseSingleExpr()
+
 	if err != nil {
 		return nil, err
 	}
+
 	for {
+
+		// 检查当前 token 是否为二元操作符
 		if !isBinaryOp(p.lex.Token) {
 			return e, nil
 		}
 
+		// 构造二元操作符表达式
 		var be BinaryOpExpr
-		be.Op = strings.ToLower(p.lex.Token)
-		be.Left = e
+		be.Op = strings.ToLower(p.lex.Token)	// 当前 token
+		be.Left = e								// 上一个 token
+
+		// 读取下个 token
 		if err := p.lex.Next(); err != nil {
 			return nil, err
 		}
+
+		// 检查 p.lex.Token 是否为 bool
 		if isBinaryOpBoolModifier(p.lex.Token) {
+
+			// 检查 be.op 是否为 "==", "!=", ">", "<", ">=", "<=" 之一 ，若是则 return
 			if !IsBinaryOpCmp(be.Op) {
 				return nil, fmt.Errorf(`bool modifier cannot be applied to %q`, be.Op)
 			}
+
+			// 设置 be.Bool 为 true
 			be.Bool = true
+
+			// 读取下个 token
 			if err := p.lex.Next(); err != nil {
 				return nil, err
 			}
 		}
+
+
+		// 检查 p.lex.Token 是否为 "on", "ignoring" 之一
 		if isBinaryOpGroupModifier(p.lex.Token) {
+
+
 			if err := p.parseModifierExpr(&be.GroupModifier); err != nil {
 				return nil, err
 			}
+
+
 			if isBinaryOpJoinModifier(p.lex.Token) {
+
 				if isBinaryOpLogicalSet(be.Op) {
 					return nil, fmt.Errorf(`modifier %q cannot be applied to %q`, p.lex.Token, be.Op)
 				}
+
 				if err := p.parseModifierExpr(&be.JoinModifier); err != nil {
 					return nil, err
 				}
+
 			}
 		}
+
 		e2, err := p.parseSingleExpr()
 		if err != nil {
 			return nil, err
 		}
+
 		be.Right = e2
+
 		e = balanceBinaryOp(&be)
 	}
 }
 
 func balanceBinaryOp(be *BinaryOpExpr) Expr {
+
 	bel, ok := be.Left.(*BinaryOpExpr)
 	if !ok {
 		return be
 	}
+
 	lp := binaryOpPriority(bel.Op)
 	rp := binaryOpPriority(be.Op)
+
 	if rp < lp {
 		return be
 	}
+
 	if rp == lp && !isRightAssociativeBinaryOp(be.Op) {
 		return be
 	}
+
 	be.Left = bel.Right
+
 	bel.Right = balanceBinaryOp(be)
+
 	return bel
 }
 
 // parseSingleExpr parses non-binaryOp expressions.
 func (p *parser) parseSingleExpr() (Expr, error) {
+
+
+
 	if isWith(p.lex.Token) {
 		err := p.lex.Next()
 		nextToken := p.lex.Token
@@ -372,41 +458,51 @@ func (p *parser) parseSingleExpr() (Expr, error) {
 			return p.parseWithExpr()
 		}
 	}
+
 	e, err := p.parseSingleExprWithoutRollupSuffix()
 	if err != nil {
 		return nil, err
 	}
+
 	if p.lex.Token != "[" && !isOffset(p.lex.Token) {
 		// There is no rollup expression.
 		return e, nil
 	}
+
 	return p.parseRollupExpr(e)
 }
 
 func (p *parser) parseSingleExprWithoutRollupSuffix() (Expr, error) {
+
 	if isPositiveNumberPrefix(p.lex.Token) || isInfOrNaN(p.lex.Token) {
 		return p.parsePositiveNumberExpr()
 	}
+
 	if isStringPrefix(p.lex.Token) {
 		return p.parseStringExpr()
 	}
+
 	if isIdentPrefix(p.lex.Token) {
 		return p.parseIdentExpr()
 	}
+
 	switch p.lex.Token {
 	case "(":
 		return p.parseParensExpr()
 	case "{":
 		return p.parseMetricExpr()
 	case "-":
+
 		// Unary minus. Substitute -expr with (0 - expr)
 		if err := p.lex.Next(); err != nil {
 			return nil, err
 		}
+
 		e, err := p.parseSingleExpr()
 		if err != nil {
 			return nil, err
 		}
+
 		be := &BinaryOpExpr{
 			Op: "-",
 			Left: &NumberExpr{
@@ -414,8 +510,11 @@ func (p *parser) parseSingleExprWithoutRollupSuffix() (Expr, error) {
 			},
 			Right: e,
 		}
+
 		pe := parensExpr{be}
+
 		return &pe, nil
+
 	case "+":
 		// Unary plus
 		if err := p.lex.Next(); err != nil {
@@ -967,23 +1066,32 @@ func (p *parser) parseFuncExpr() (*FuncExpr, error) {
 }
 
 func (p *parser) parseModifierExpr(me *ModifierExpr) error {
+
+
 	if !isIdentPrefix(p.lex.Token) {
 		return fmt.Errorf(`ModifierExpr: unexpected token %q; want "ident"`, p.lex.Token)
 	}
+
 
 	me.Op = strings.ToLower(p.lex.Token)
 
 	if err := p.lex.Next(); err != nil {
 		return err
 	}
+
+
 	if isBinaryOpJoinModifier(me.Op) && p.lex.Token != "(" {
 		// join modifier may miss ident list.
 		return nil
 	}
+
+
 	args, err := p.parseIdentList()
 	if err != nil {
 		return err
 	}
+
+
 	me.Args = args
 	return nil
 }
@@ -1391,8 +1499,10 @@ func (pe parensExpr) AppendString(dst []byte) []byte {
 	return appendStringArgListExpr(dst, pe)
 }
 
+
 // BinaryOpExpr represents binary operation.
 type BinaryOpExpr struct {
+
 	// Op is the operation itself, i.e. `+`, `-`, `*`, etc.
 	Op string
 
@@ -1469,25 +1579,40 @@ func (me *ModifierExpr) AppendString(dst []byte) []byte {
 	return dst
 }
 
+
+
 func appendStringArgListExpr(dst []byte, args []Expr) []byte {
+
 	dst = append(dst, '(')
+
 	for i, arg := range args {
 		dst = arg.AppendString(dst)
 		if i+1 < len(args) {
 			dst = append(dst, ", "...)
 		}
 	}
+
 	dst = append(dst, ')')
+
 	return dst
 }
 
+
+
+
 // FuncExpr represetns MetricsQL function such as `foo(...)`
+//
+// 函数表达式
 type FuncExpr struct {
+
 	// Name is function name.
+	// 函数名
 	Name string
 
 	// Args contains function args.
+	// 函数参数
 	Args []Expr
+
 }
 
 // AppendString appends string representation of fe to dst and returns the result.
@@ -1529,6 +1654,10 @@ func (ae *AggrFuncExpr) AppendString(dst []byte) []byte {
 	}
 	return dst
 }
+
+
+
+
 
 // withExpr represents `with (...)` extension from MetricsQL.
 //

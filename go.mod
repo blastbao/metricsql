@@ -1,4 +1,4 @@
-module github.com/VictoriaMetrics/metricsql
+module github.com/blastbao/metricsql
 
 go 1.13
 

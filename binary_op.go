@@ -5,10 +5,13 @@ import (
 	"math"
 	"strings"
 
-	"github.com/VictoriaMetrics/metricsql/binaryop"
+	"github.com/blastbao/metricsql/binaryop"
 )
 
+// 二元操作符
 var binaryOps = map[string]bool{
+
+	// 数学运算
 	"+": true,
 	"-": true,
 	"*": true,
@@ -16,7 +19,7 @@ var binaryOps = map[string]bool{
 	"%": true,
 	"^": true,
 
-	// cmp ops
+	// 比较
 	"==": true,
 	"!=": true,
 	">":  true,
@@ -24,26 +27,27 @@ var binaryOps = map[string]bool{
 	">=": true,
 	"<=": true,
 
-	// logical set ops
+	// 逻辑
 	"and":    true,
 	"or":     true,
 	"unless": true,
 
-	// New ops for MetricsQL
+	// 条件
 	"if":      true,
 	"ifnot":   true,
 	"default": true,
 }
 
+// 二元操作符优先级
 var binaryOpPriorities = map[string]int{
+
 	"default": -1,
 
 	"if":    0,
 	"ifnot": 0,
 
 	// See https://prometheus.io/docs/prometheus/latest/querying/operators/#binary-operator-precedence
-	"or": 1,
-
+	"or":     1,
 	"and":    2,
 	"unless": 2,
 
@@ -74,17 +78,27 @@ func binaryOpPriority(op string) int {
 	return binaryOpPriorities[op]
 }
 
+// 检查 s 是否前缀包含某操作符（最长匹配原则），若包含，返回对应操作符的字符数
 func scanBinaryOpPrefix(s string) int {
 	n := 0
+	// 遍历所有二元操作符
 	for op := range binaryOps {
-		if len(s) < len(op) {
+
+		// 因为 s 包含 op，所以若 len(op) > len(s) ，则忽略当前 op
+		if len(op) > len(s) {
 			continue
 		}
+
+		// 至此，len(s) >= len(op)，所以取出 s[:len(op)] 和 op 进行比对
 		ss := strings.ToLower(s[:len(op)])
+
+		// 如果相匹配，则 op 为 ss 的前缀，更新 n = len(op) > n ? len(op) : n
 		if ss == op && len(op) > n {
 			n = len(op)
 		}
 	}
+
+	// 至此，若 n != 0，则找到了满足最长匹配原则的操作符
 	return n
 }
 
@@ -140,7 +154,14 @@ func isBinaryOpLogicalSet(op string) bool {
 }
 
 func binaryOpEval(op string, left, right float64, isBool bool) float64 {
+
+
+	var result float64
+
+	// compare ?
 	if IsBinaryOpCmp(op) {
+
+		//
 		evalCmp := func(cf func(left, right float64) bool) float64 {
 			if isBool {
 				if cf(left, right) {
@@ -153,53 +174,55 @@ func binaryOpEval(op string, left, right float64, isBool bool) float64 {
 			}
 			return nan
 		}
+
 		switch op {
 		case "==":
-			left = evalCmp(binaryop.Eq)
+			result = evalCmp(binaryop.Eq)
 		case "!=":
-			left = evalCmp(binaryop.Neq)
+			result = evalCmp(binaryop.Neq)
 		case ">":
-			left = evalCmp(binaryop.Gt)
+			result = evalCmp(binaryop.Gt)
 		case "<":
-			left = evalCmp(binaryop.Lt)
+			result = evalCmp(binaryop.Lt)
 		case ">=":
-			left = evalCmp(binaryop.Gte)
+			result = evalCmp(binaryop.Gte)
 		case "<=":
-			left = evalCmp(binaryop.Lte)
+			result = evalCmp(binaryop.Lte)
 		default:
 			panic(fmt.Errorf("BUG: unexpected comparison binaryOp: %q", op))
 		}
 	} else {
 		switch op {
 		case "+":
-			left = binaryop.Plus(left, right)
+			result = binaryop.Plus(left, right)
 		case "-":
-			left = binaryop.Minus(left, right)
+			result = binaryop.Minus(left, right)
 		case "*":
-			left = binaryop.Mul(left, right)
+			result = binaryop.Mul(left, right)
 		case "/":
-			left = binaryop.Div(left, right)
+			result = binaryop.Div(left, right)
 		case "%":
-			left = binaryop.Mod(left, right)
+			result = binaryop.Mod(left, right)
 		case "^":
-			left = binaryop.Pow(left, right)
+			result = binaryop.Pow(left, right)
 		case "and":
 			// Nothing to do
 		case "or":
 			// Nothing to do
 		case "unless":
-			left = nan
+			result = nan
 		case "default":
-			left = binaryop.Default(left, right)
+			result = binaryop.Default(left, right)
 		case "if":
-			left = binaryop.If(left, right)
+			result = binaryop.If(left, right)
 		case "ifnot":
-			left = binaryop.Ifnot(left, right)
+			result = binaryop.Ifnot(left, right)
 		default:
 			panic(fmt.Errorf("BUG: unexpected non-comparison binaryOp: %q", op))
 		}
 	}
-	return left
+
+	return result
 }
 
 var nan = math.NaN()

@@ -1,7 +1,9 @@
 package metricsql
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -347,6 +349,9 @@ func TestDurationSuccess(t *testing.T) {
 	f := func(s string, step, expectedD int64) {
 		t.Helper()
 		d, err := DurationValue(s, step)
+
+		fmt.Println(s, d)
+
 		if err != nil {
 			t.Fatalf("unexpected error: %s", err)
 		}
@@ -398,4 +403,65 @@ func TestDurationError(t *testing.T) {
 	f("1.23")
 	f("1.23mm")
 	f("123q")
+}
+
+
+func TestScanBinaryOpPrefix(t *testing.T) {
+
+	f := func(s string) {
+		t.Helper()
+		d := scanBinaryOpPrefix(s)
+		fmt.Println(d)
+	}
+
+	f("+")
+	f("-")
+	f("*")
+	f("!=")
+	f("+-and")
+}
+
+
+func TestScanDuration(t *testing.T) {
+
+	f := func(s string) {
+		t.Helper()
+		d := scanDuration(s, true)
+		fmt.Println(d)
+	}
+
+	f("123s")
+	f("-123s")
+	f("123m")
+	f("1h")
+	f("2d")
+	f("3w")
+	f("4y")
+	f("1i")
+	f("3i")
+	f("-3i")
+}
+
+func TestLexerTokenize(t *testing.T) {
+	t.Helper()
+
+
+	s := `volume_manager_total_volumes{instance="lfgphicprd07591",job="kubernetes-nodes",kubernetes_io_arch="amd64"}[5m]`
+
+
+	var lex lexer
+	lex.Init(s)
+
+	var tokens []string
+	for {
+		if err := lex.Next(); err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+		if isEOF(lex.Token) {
+			break
+		}
+		tokens = append(tokens, lex.Token)
+	}
+
+	fmt.Println(strings.Join(tokens, "\n"))
 }

@@ -14,17 +14,22 @@ func ExampleParse() {
 	}
 	fmt.Printf("parsed expr: %s\n", expr.AppendString(nil))
 
-	ae := expr.(*metricsql.AggrFuncExpr)
-	fmt.Printf("aggr func: name=%s, arg=%s, modifier=%s\n", ae.Name, ae.Args[0].AppendString(nil), ae.Modifier.AppendString(nil))
+	fmt.Println("########parsed expr:", expr)
 
-	fe := ae.Args[0].(*metricsql.FuncExpr)
-	fmt.Printf("func: name=%s, arg=%s\n", fe.Name, fe.Args[0].AppendString(nil))
 
-	re := fe.Args[0].(*metricsql.RollupExpr)
-	fmt.Printf("rollup: expr=%s, window=%s\n", re.Expr.AppendString(nil), re.Window)
 
-	me := re.Expr.(*metricsql.MetricExpr)
-	fmt.Printf("metric: labelFilter1=%s, labelFilter2=%s", me.LabelFilters[0].AppendString(nil), me.LabelFilters[1].AppendString(nil))
+
+	//ae := expr.(*metricsql.AggrFuncExpr)
+	//fmt.Printf("aggr func: name=%s, arg=%s, modifier=%s\n", ae.Name, ae.Args[0].AppendString(nil), ae.Modifier.AppendString(nil))
+	//
+	//fe := ae.Args[0].(*metricsql.FuncExpr)
+	//fmt.Printf("func: name=%s, arg=%s\n", fe.Name, fe.Args[0].AppendString(nil))
+	//
+	//re := fe.Args[0].(*metricsql.RollupExpr)
+	//fmt.Printf("rollup: expr=%s, window=%s\n", re.Expr.AppendString(nil), re.Window)
+	//
+	//me := re.Expr.(*metricsql.MetricExpr)
+	//fmt.Printf("metric: labelFilter1=%s, labelFilter2=%s", me.LabelFilters[0].AppendString(nil), me.LabelFilters[1].AppendString(nil))
 
 	// Output:
 	// parsed expr: sum(rate(foo{bar="baz"}[5m])) by (x, y)
